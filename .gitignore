@@ -1,7 +1,7 @@
 /Server/*.local
 *.~*
-*/__history/*
-
-/Server/Win32/Debug/*.exe
-/Server/Win32/Debug/*.dcu
-/Server/Win32/Debug/Notificacao.Log/*.log
+/Server/__history/
+*.exe
+*.dcu
+*.log
+/Server/*.identcache

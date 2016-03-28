@@ -42,6 +42,12 @@ begin
   FMVC := TMVCEngine.Create(Self);
   FMVC.Config['document_root'] := 'www';
   FMVC.AddController(TNotificacaoDomain);
+
+  if not Assigned(vgListaToken) then
+  begin
+    vgListaToken := TStringList.Create;
+  end;
+
 end;
 
 end.

@@ -8,7 +8,8 @@ uses
   Web.WebReq,
   Web.WebBroker,
   WebModuleU in 'WebModuleU.pas' {WebModule1: TWebModule},
-  NotificacaoDomain in 'Domain\NotificacaoDomain.pas';
+  NotificacaoDomain in 'Domain\NotificacaoDomain.pas',
+  cHTTP in 'cHTTP.pas';
 
 {$R *.res}
 
