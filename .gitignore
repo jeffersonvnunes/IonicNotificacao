@@ -5,3 +5,4 @@
 *.dcu
 *.log
 /Server/*.identcache
+/NotificacoApp/.idea

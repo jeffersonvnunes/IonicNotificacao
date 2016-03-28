@@ -14,22 +14,43 @@
 
     <!-- ionic/angularjs js -->
     <script src="lib/ionic/js/ionic.bundle.js"></script>
-<script src="lib/ionic-platform-web-client/dist/ionic.io.bundle.min.js"></script>
+    <script src="lib/ionic-platform-web-client/dist/ionic.io.bundle.min.js"></script>
 
     <!-- cordova script (this will be a 404 during development) -->
     <!-- Cordova is bootstrapped by ionic-platform-web-client, uncomment this if you remove ionic-platform-web-client... -->
-<!-- <script src="cordova.js"></script> -->
+    <!-- <script src="cordova.js"></script> -->
 
     <!-- your app's js -->
     <script src="js/app.js"></script>
   </head>
-  <body ng-app="starter">
+  <body ng-app="notificaoapp">
 
     <ion-pane>
       <ion-header-bar class="bar-stable">
-        <h1 class="title">Ionic Blank Starter</h1>
+        <h1 class="title">Teste Notificação</h1>
       </ion-header-bar>
-      <ion-content>
+      <ion-content ng-controller="NotificacaoCtrl">
+        <div class="list">
+          <label class="item item-input">
+            <input type="text" placeholder="servidor" ng-model="servidor">
+          </label>
+          <label class="item item-input">
+            <input type="text" placeholder="token" ng-model="token">
+          </label>
+          <button class="button button-balanced" ng-click="geraToken()">
+            Gerar Token
+          </button>
+          <button class="button button-assertive" ng-click="setToken()">
+            Registrar
+          </button>
+
+          <label class="item item-input">
+            <textarea placeholder="Mensagem" ng-model="mensagem"></textarea>
+          </label>
+          <button class="button button-block button-positive" ng-click="enviar()">
+            Enviar
+          </button>
+        </div>
       </ion-content>
     </ion-pane>
   </body>
