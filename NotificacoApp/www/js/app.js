@@ -10,7 +10,9 @@ angular.module('notificaoapp', ['ionic'])
 
   this.setToken = function(servidor, token){
     var dados = {
-                  token : ''
+                  token : '',
+                  platform: device.platform,
+                  device: device.uuid
                 };
 
     dados.token = token;
@@ -54,56 +56,72 @@ angular.module('notificaoapp', ['ionic'])
 .controller('NotificacaoCtrl', function ($scope, $servicoNotificacao) {
 
   $scope.servidor = 'http://192.168.25.5:9090';
+  $scope.token = undefined;
 
-  var push = new Ionic.Push({
-    "onNotification": function(notification) {
-      console.log('Notificacao', JSON.stringify(notification));
-      window.plugins.toast.showShortBottom(notification.text);
-    },
-    "onRegister": function(data) {
-      console.log('Registrado', data.token);
-    },
-    "pluginConfig": {
-      "ios": {
-        "badge": true,
-        "sound": true
+  var push = undefined;
+
+  $scope.registrar = function () {
+
+    push = PushNotification.init({
+      android: {
+        senderID: "381509618530"
       },
-      "android": {
-        "iconColor": "#343434",
-        "sound": "default",
-        "tag": "bar"
-      }
-    }
-  });
+      ios: {
+        alert: "true",
+        badge: true,
+        sound: 'false'
+      },
+      windows: {}
+    });
 
-  $scope.geraToken = function () {
-
-    push.register(function(pushToken) {
-
-      $scope.token = pushToken.token;
-      console.log('Callback register', $scope.token);
-
-      push.saveToken(pushToken.token);
-
+    push.on('registration', function(data) {
+      console.log("registration event",JSON.stringify(data));
+      $scope.token = data.registrationId;
       $scope.$apply();
     });
+
+    push.on('notification', function(data) {
+
+      console.log("notification event",JSON.stringify(data));
+      window.plugins.toast.showShortBottom(data.message);
+
+      push.finish(function () {
+        console.log('finish successfully called');
+      });
+    });
+
+    push.on('error', function(e) {
+      console.log("push error",JSON.stringify(e));
+      window.plugins.toast.showShortBottom(JSON.stringify(e));
+    });
+
+  };
+
+  $scope.desRegistrar = function(){
+    if($scope.token !== undefined) {
+      push.unregister(function () {
+        window.plugins.toast.showShortBottom("Ok");
+        $scope.token = undefined;
+        $scope.$apply();
+      }, function (erro) {
+        window.plugins.toast.showShortBottom("Erro: "+JSON.stringify(erro));
+      });
+    }
   };
 
   $scope.setToken = function(){
     $servicoNotificacao.setToken($scope.servidor, $scope.token).then(function (response) {
-      console.log('setToken ok', JSON.stringify(response));
+      window.plugins.toast.showShortBottom("OK");
     }).catch(function (erro) {
-      console.log('setToken erro', JSON.stringify(erro));
+      window.plugins.toast.showShortBottom("Erro: "+JSON.stringify(erro));
     });
   };
 
   $scope.enviar = function(){
-    //$scope.dados.device = $cordovaDevice.getUUID();
-
     $servicoNotificacao.notificar($scope.servidor, $scope.mensagem).then(function (response) {
-      console.log('notificar ok', JSON.stringify(response));
+      window.plugins.toast.showShortBottom("Enviado");
     }).catch(function (erro) {
-      console.log('notificar erro', JSON.stringify(erro));
+      window.plugins.toast.showShortBottom("Erro: "+JSON.stringify(erro));
     });
   }
 });

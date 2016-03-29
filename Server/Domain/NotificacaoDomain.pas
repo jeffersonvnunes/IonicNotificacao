@@ -3,13 +3,13 @@ unit NotificacaoDomain;
 interface
 
 uses
-  MVCFramework, System.Classes, cHTTP;
+  MVCFramework, System.Classes, cHTTP, System.Generics.Collections ;
 
 type
    [MVCPath('/')]
    TNotificacaoDomain = class(TMVCController)
    private
-     function EnviaNotificacao(const ATokens, AMensagem: String): THTTPResponse;
+     function EnviaNotificacao(const AToken, AMensagem: String): THTTPResponse;
    public
      [MVCHTTPMethod([httpPOST])]
      [MVCPath('/notificacao')]
@@ -44,7 +44,7 @@ type
    end;
 
 var
-  vgListaToken: TstringList;
+  vgListaToken: TDictionary<string, TDado>;
 
 implementation
 
@@ -55,24 +55,26 @@ uses
 
 procedure TNotificacaoDomain.DeleteToken(CTX: TWebContext);
 var
-  index: Integer;
-  vDado: TDado;
+  key: String;
+  vDado, vDadoLista: TDado;
 begin
   vDado := TDado.Create;
 
   try
     try
 
-      vDado.token := '';
+      vDado.device := '';
 
       vDado.FromJson(CTX.Request.RawWebRequest.Content);
 
-      if not vDado.token.IsEmpty then
+      if not vDado.device.IsEmpty then
       begin
-        index := vgListaToken.IndexOf(vDado.token);
-        if index >= 0 then
+
+        if vgListaToken.ContainsKey(vDado.device) then
         begin
-          vgListaToken.Delete(index);
+          vDadoLista := vgListaToken.Items[vDado.device];
+          vgListaToken.Remove(vDado.device);
+          vDadoLista.DisposeOf;
         end;
       end
       else
@@ -92,26 +94,25 @@ begin
   end;
 end;
 
-function TNotificacaoDomain.EnviaNotificacao(const ATokens, AMensagem: String): THTTPResponse;
+function TNotificacaoDomain.EnviaNotificacao(const AToken, AMensagem: String): THTTPResponse;
 var
   vRequest: THTTPRequest;
-  vResponse: THTTPResponse;
 begin
   Result := nil;
 
   vRequest := THTTPRequest.Create;
   vRequest.SSL := True;
   vRequest.Header.Add('Content-Type:application/json');
-  vRequest.Header.Add('Authorization:Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiJmM2RjNDU5MS05MmZlLTRhMzctOTYxNy01ZTJlNzE0NjdhMDMifQ.ybVPFydoukhUc8LuRt3MreJRgelTp6iTUBiYMmqjSn0');
+  vRequest.Header.Add('Authorization:key=AIzaSyAa1mUPLQmCHtlEQjY5DJr1jT5X8NXxfg8');
   vRequest.Content.Text := '{ '
-                          +' "tokens": ['+ATokens+'],  '
-                          +' "profile": "notificationapp",        '
-                          +' "notification": {                 '
-                          +'     "message": "'+AMensagem+'" }  '
+                          +' "data": { '
+                          +'  "message": "'+AMensagem+'"'
+                          +' },'
+                          +' "to" : "'+AToken+'"'
                           +'}';
 
   try
-    Result := THTTPClient.POST('https://api.ionic.io/push/notifications', vRequest);
+    Result := THTTPClient.POST('https://gcm-http.googleapis.com/gcm/send', vRequest);
   finally
     vRequest.DisposeOf;
   end;
@@ -120,8 +121,9 @@ end;
 
 procedure TNotificacaoDomain.GetToken(CTX: TWebContext);
 var
-  i: Integer;
+  key: string;
   vRetorno: string;
+  vDado: TDado;
 begin
   CTX.Response.SetCustomHeader('Access-Control-Allow-Origin','*');
   CTX.Response.StatusCode := 200;
@@ -129,14 +131,16 @@ begin
   try
     vRetorno := '';
 
-    for i := 0 to vgListaToken.Count -1 do
+    for key in vgListaToken.Keys do
     begin
+      vDado := vgListaToken.Items[key];
+
       if vRetorno <> '' then
       begin
         vRetorno := vRetorno + ',';
       end;
 
-      vRetorno := vRetorno +'"'+ vgListaToken.Strings[i]+'"';
+      vRetorno := vRetorno + vDado.toJson.AsJSon;
     end;
 
     CTX.Response.RawWebResponse.Content := '{ "tokens":['+vRetorno+']}';
@@ -151,17 +155,25 @@ end;
 procedure TNotificacaoDomain.NotificaMobile(CTX: TWebContext);
 var
   vNotificacao: TNotificacao;
-  i: Integer;
+  key: string;
   vTokens: string;
   vRetorno: THTTPResponse;
+  vRetornos: TStringList;
+  vDado: TDado;
 begin
   vRetorno := nil;
+  vRetornos := nil;
+  vNotificacao := nil;
+
   CTX.Response.SetCustomHeader('Access-Control-Allow-Origin','*');
   CTX.Response.StatusCode := 200;
 
+  vRetornos := TStringList.Create;  
+  vNotificacao := TNotificacao.Create;
+
   try
     try
-      vNotificacao := TNotificacao.Create;
+
       vNotificacao.mensagem := '';
 
       vNotificacao.FromJson(CTX.Request.RawWebRequest.Content);
@@ -175,14 +187,26 @@ begin
 
       vTokens := '';
 
-      for i := 0 to vgListaToken.Count -1 do
+      for key in vgListaToken.Keys do
       begin
-        if vTokens <> '' then
-        begin
-          vTokens := vTokens + ',';
-        end;
+        vDado := vgListaToken.Items[key];
 
-        vTokens := vTokens +'"'+ vgListaToken.Strings[i] +'"';
+        if (vDado.platform = 'Android') then
+        begin
+          vRetorno := EnviaNotificacao(vDado.token, vNotificacao.mensagem);           
+
+          if vTokens <> '' then
+          begin
+            vTokens := vTokens + ',';
+            vRetornos.Add(',');
+          end;
+
+          vRetornos.Add(vRetorno.Content.Text);
+
+          vRetorno.DisposeOf;
+
+          vTokens := vTokens +'"'+ vDado.token +'"';
+        end;
       end;
 
       if vTokens.IsEmpty then
@@ -192,14 +216,7 @@ begin
         Exit;
       end;
 
-      CTX.Response.RawWebResponse.Content := '{ "tokens":['+vTokens+']}';
-
-      vRetorno := EnviaNotificacao(vTokens, vNotificacao.mensagem);
-
-      if Assigned(vRetorno) then
-      begin
-        CTX.Response.RawWebResponse.Content := vRetorno.Content.Text;
-      end;
+      CTX.Response.RawWebResponse.Content :='"retorno":['+ vRetornos.Text+']';
 
     except
       on e: Exception do
@@ -209,11 +226,6 @@ begin
     end;
   finally
     vNotificacao.DisposeOf;
-
-    if Assigned(vRetorno) then
-    begin
-      vRetorno.DisposeOf;
-    end;
   end;
 end;
 
@@ -234,36 +246,33 @@ begin
   CTX.Response.SetCustomHeader('Access-Control-Allow-Origin','*');
   CTX.Response.StatusCode := 200;
   vDado := TDado.Create;
+
   try
-    try
 
-      vDado.token := '';
+    vDado.device := '';
 
-      vDado.FromJson(CTX.Request.RawWebRequest.Content);
+    vDado.FromJson(CTX.Request.RawWebRequest.Content);
 
-      if not vDado.token.IsEmpty and (vgListaToken.IndexOf(vDado.token) = -1) then
+    if not (vDado.device.IsEmpty or vgListaToken.ContainsKey(vDado.device)) then
+    begin
+      vgListaToken.Add(vDado.device, vDado);
+    end
+    else
+    begin
+      CTX.Response.StatusCode := 400;
+      CTX.Response.RawWebResponse.Content := '{ "erro": "Device já existente"}';
+
+      if vDado.device.IsEmpty then
       begin
-        vgListaToken.Add(vDado.token);
-      end
-      else
-      begin
-        CTX.Response.StatusCode := 400;
-        CTX.Response.RawWebResponse.Content := '{ "erro": "Token já existente"}';
-
-        if vDado.token.IsEmpty then
-        begin
-          CTX.Response.RawWebResponse.Content := '{ "erro": "Token não definido"}';
-        end;
-      end;
-
-    except
-      on e: Exception do
-      begin
-        CTX.Response.StatusCode := 500;
+        CTX.Response.RawWebResponse.Content := '{ "erro": "Device não definido"}';
       end;
     end;
-  finally
-    vDado.DisposeOf;
+
+  except
+    on e: Exception do
+    begin
+      CTX.Response.StatusCode := 500;
+    end;
   end;
 end;
 

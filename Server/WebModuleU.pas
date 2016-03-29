@@ -21,7 +21,7 @@ var
 implementation
 
 uses
-  NotificacaoDomain;
+  NotificacaoDomain,  System.Generics.Collections;
 
 {%CLASSGROUP 'Vcl.Controls.TControl'}
 
@@ -45,7 +45,7 @@ begin
 
   if not Assigned(vgListaToken) then
   begin
-    vgListaToken := TStringList.Create;
+    vgListaToken := TDictionary<string, TDado>.Create;
   end;
 
 end;
